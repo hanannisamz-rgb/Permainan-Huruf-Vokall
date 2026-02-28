@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Permainan Tangkap Huruf Vokal</title>
+    <style>
+        /* Gaya Asas & Pembuangan Margin */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEFA, #E0FFFF);
+            font-family: 'Comic Sans MS', 'Chalkboard SE', 'Marker Felt', sans-serif;
+            touch-action: none;
+            user-select: none;
+        }
+
+        /* Latar Belakang Kartun */
+        .scenery {
+            position: absolute;
+            z-index: 10;
+            pointer-events: none;
+            user-select: none;
+        }
+        .cloud {
+            font-size: 100px;
+            opacity: 0.8;
+            animation: float 25s linear infinite;
+        }
+        .cloud.fast { animation-duration: 18s; font-size: 70px; }
+        .cloud.slow { animation-duration: 35s; font-size: 120px; }
+        .sun {
+            font-size: 120px;
+            top: 20px;
+            right: 20px;
+            animation: pulse 3s infinite alternate;
+        }
+        .tree {
+            bottom: 0;
+            font-size: 150px;
+            z-index: 5;
+        }
+        .butterfly {
+            position: absolute;
+            font-size: 40px;
+            animation: flutter 12s ease-in-out infinite;
+            z-index: 12;
+            pointer-events: none;
+        }
+        
+        @keyframes float {
+            0% { transform: translateX(-150px); }
+            100% { transform: translateX(calc(100vw + 150px)); }
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+        }
+        @keyframes flutter {
+            0% { transform: translate(-50px, 300px) rotate(10deg) scaleX(-1); }
+            25% { transform: translate(30vw, 150px) rotate(-5deg) scaleX(-1); }
+            50% { transform: translate(60vw, 250px) rotate(10deg) scaleX(-1); }
+            75% { transform: translate(90vw, 100px) rotate(-5deg) scaleX(-1); }
+            100% { transform: translate(110vw, 200px) rotate(10deg) scaleX(-1); }
+        }
+
+        /* Penjejak Vokal (Vowel Tracker) - Papar 5 Huruf Sahaja */
+        #vowel-tracker {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #FFF;
+            padding: 10px 25px;
+            border-radius: 30px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            font-size: 32px;
+            font-weight: bold;
+            z-index: 100;
+            border: 4px solid #FFD700;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .vowel-slot { 
+            color: #DDD; 
+            transition: all 0.3s ease; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1;
+        }
+        .vowel-slot.half {
+            color: #FFA500; 
+            transform: scale(1.1);
+        }
+        .vowel-slot.collected { 
+            color: #FF4500; 
+            text-shadow: 2px 2px 0px #FFD700; 
+            transform: scale(1.2); 
+        }
+
+        /* Butang Kawalan Muzik */
+        #music-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: #FF69B4;
+            color: white;
+            border: 3px solid #FFF;
+            padding: 10px 15px;
+            font-size: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 200;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+        #music-btn:active { transform: scale(0.9); }
+
+        /* Modal Arahan & Game Over */
+        .modal-overlay {
+            display: flex;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 300;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: #FFF;
+            padding: 30px 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 5px dashed #FF69B4;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            font-size: 24px;
+            color: #333;
+        }
+        .modal-btn {
+            background-color: #32CD32;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 24px;
+            font-family: inherit;
+            border-radius: 30px;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+        .modal-btn:active { transform: translateY(4px); }
+
+        /* Bakul Pemain */
+        #basket {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 100px;
+            z-index: 150;
+            transition: transform 0.1s ease-out;
+            will-change: left, transform;
+        }
+
+        .jump { animation: jumpAnimation 0.3s ease; }
+        @keyframes jumpAnimation {
+            0% { transform: translateX(-50%) translateY(0) scale(1); }
+            50% { transform: translateX(-50%) translateY(-30px) scale(1.1); }
+            100% { transform: translateX(-50%) translateY(0) scale(1); }
+        }
+
+        /* Gaya untuk Huruf Jatuh */
+        .letter {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 35px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 40;
+            will-change: transform;
+        }
+
+        .vowel {
+            background-color: #FFD700;
+            color: #FF4500;
+            border: 4px solid #FFA500;
+            text-shadow: 1px 1px 0px #FFF;
+        }
+
+        .consonant {
+            background-color: #E6E6FA;
+            color: #9370DB;
+            border: 4px solid #D8BFD8;
+            opacity: 0.85;
+        }
+
+        /* Animasi Kartun Popup */
+        .cartoon-popup {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            z-index: 160;
+            animation: floatUpAndFade 1.5s ease-out forwards;
+        }
+        .cartoon-emoji { font-size: 60px; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.3)); }
+        .cartoon-text {
+            background: white;
+            color: #FF1493;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            border: 2px solid #FF69B4;
+            margin-top: -10px;
+        }
+
+        @keyframes floatUpAndFade {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; }
+            20% { transform: translateY(-30px) scale(1.2); opacity: 1; }
+            80% { transform: translateY(-80px) scale(1); opacity: 1; }
+            100% { transform: translateY(-120px) scale(1); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <button id="music-btn">🎵</button>
+
+    <!-- Penjejak 5 Vokal Sahaja (e akan mewakili pepet dan taling di latar belakang) -->
+    <div id="vowel-tracker">
+        <span id="track-a" class="vowel-slot">a</span>
+        <span id="track-e" class="vowel-slot">e</span>
+        <span id="track-i" class="vowel-slot">i</span>
+        <span id="track-o" class="vowel-slot">o</span>
+        <span id="track-u" class="vowel-slot">u</span>
+    </div>
+
+    <!-- Pemandangan -->
+    <div class="scenery sun">☀️</div>
+    <div class="scenery cloud" style="top: 10%; left: -10%;">☁️</div>
+    <div class="scenery cloud fast" style="top: 30%; left: 40%;">☁️</div>
+    <div class="scenery cloud slow" style="top: 50%; left: 10%;">☁️</div>
+    <div class="scenery tree" style="left: 5vw;">🌳</div>
+    <div class="scenery tree" style="right: 10vw; font-size: 180px;">🌲</div>
+    <div class="scenery tree" style="left: 40vw; bottom: -20px; font-size: 120px;">🌳</div>
+    <div class="scenery butterfly">🦋</div>
+
+    <!-- Skrin Mula dengan Arahan Ringkas -->
+    <div id="instructions" class="modal-overlay">
+        <div class="modal-content">
+            <h1 style="color: #FF69B4; margin-top: 0; margin-bottom: 20px; font-size: 35px;">Tangkap huruf vokal</h1>
+            <button id="start-btn" class="modal-btn">Mula Main!</button>
+        </div>
+    </div>
+
+    <!-- Modal Game Over -->
+    <div id="game-over-modal" class="modal-overlay" style="display: none; border-color: #32CD32;">
+        <div class="modal-content">
+            <h1 style="color: #32CD32; margin-top:0; margin-bottom: 0; font-size: 40px;">Tahniah,<br>Anda hebat !</h1>
+            <button id="restart-btn" class="modal-btn">Main Semula</button>
+        </div>
+    </div>
+
+    <div id="basket">🧺</div>
+
+    <script>
+        // --- TETAPAN ASAS ---
+        const basketEl = document.getElementById('basket');
+        const instructionsEl = document.getElementById('instructions');
+        const startBtn = document.getElementById('start-btn');
+        const musicBtn = document.getElementById('music-btn');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const restartBtn = document.getElementById('restart-btn');
+
+        let gameActive = false;
+        let isMusicWanted = true;
+        let collectedVowels = new Set();
+        
+        let basketX = window.innerWidth / 2;
+        let basketSpeed = 600; 
+        let moveLeft = false;
+        let moveRight = false;
+        const basketWidth = 100;
+
+        const vowels = ['a', 'e', 'i', 'o', 'u']; 
+        const consonants = ['b','c','d','f','g','h','j','k','l','m','n','p','q','r','s','t','v','w','x','y','z'];
+        let activeLetters = []; 
+        let lastSpawnedChar = ''; 
+        
+        let lastTime = 0;
+        let letterSpawnTimer = 0;
+        let spawnInterval = 800; // DILARASKAN: Huruf keluar pada kadar sederhana (tidak terlalu cepat)
+        let fallSpeed = 350;     // DILARASKAN: Kelajuan jatuh lebih relaks (tidak terlalu lambat)
+
+        // --- 1. BUNYI FONETIK (WEB SPEECH API DENGAN SISTEM CARI SUARA MELAYU) ---
+        let malayVoice = null;
+        
+        // Fungsi untuk mencari suara peranti ms-MY atau id-ID
+        function loadVoices() {
+            const voices = window.speechSynthesis.getVoices();
+            // Paksa carian suara Melayu atau Indonesia
+            malayVoice = voices.find(v => v.lang === 'ms-MY') || 
+                         voices.find(v => v.lang === 'id-ID') || 
+                         voices.find(v => v.lang.includes('ms')) || 
+                         voices.find(v => v.lang.includes('id'));
+        }
+        
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+            loadVoices();
+        }
+
+        // Pemetaan fonetik berganda (Pintar)
+        // Jika ada suara Melayu: Guna 'malayText'
+        // Jika tiada suara Melayu (Fallback): Guna 'fallbackText' supaya enjin Inggeris bunyi macam Melayu
+        const ttsData = {
+            'a': { malayText: 'a', fallbackText: 'ah' },        
+            'e_pepet': { malayText: 'eu', fallbackText: 'euh' },   // DITUKAR: Guna ejaan 'eu' atau 'euh' untuk paksa bunyi pepet (emak)
+            'e_taling': { malayText: 'é', fallbackText: 'eh' }, // Guna 'eh' untuk bunyi /e/ epal
+            'i': { malayText: 'i', fallbackText: 'ee' },        
+            'o': { malayText: 'o', fallbackText: 'oh' },        
+            'u': { malayText: 'u', fallbackText: 'oo' }         // Paksa 'oo' jika tiada suara Melayu
+        };
+
+        const cartoonMap = {
+            'a': { emoji: '🐔', word: 'ayam' },
+            'e_pepet': { emoji: '👩', word: 'emak' },
+            'e_taling': { emoji: '🍎', word: 'epal' }, 
+            'i': { emoji: '🐟', word: 'ikan' },
+            'o': { emoji: '🧠', word: 'otak' },
+            'u': { emoji: '🦐', word: 'udang' }
+        };
+
+        function playPhonicSound(key) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); 
+                
+                // Pilih teks berdasarkan kewujudan enjin suara Melayu
+                let textToSpeak = malayVoice ? ttsData[key].malayText : ttsData[key].fallbackText;
+                
+                // 1. ARAHAN KHUSUS UNTUK E PEPET: Paksa ejaan fonetik /ə/ 
+                if (key === 'e_pepet') {
+                    textToSpeak = 'eu'; // Menghantar 'eu' ke enjin suara supaya ia berbunyi hampir kepada awalan 'emak'
+                }
+
+                let utterance = new SpeechSynthesisUtterance(textToSpeak);
+                
+                if (malayVoice) {
+                    utterance.voice = malayVoice;
+                }
+                
+                // Paksa ms-MY sentiasa supaya bunyi kekal natural di semua peranti
+                utterance.lang = 'ms-MY';
+                utterance.rate = 0.8; // Kelajuan perlahan supaya lebih jelas
+                utterance.pitch = 1.0; 
+                
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function showCartoonAnimation(key, x, y) {
+            const popupEl = document.createElement('div');
+            popupEl.classList.add('cartoon-popup');
+            
+            let data = cartoonMap[key];
+            
+            playPhonicSound(key);
+
+            const emojiEl = document.createElement('div');
+            emojiEl.classList.add('cartoon-emoji');
+            emojiEl.textContent = data.emoji;
+
+            const textEl = document.createElement('div');
+            textEl.classList.add('cartoon-text');
+            textEl.textContent = data.word;
+
+            popupEl.appendChild(emojiEl);
+            popupEl.appendChild(textEl);
+            
+            popupEl.style.left = `${x}px`;
+            popupEl.style.top = `${y - 60}px`; 
+            document.body.appendChild(popupEl);
+
+            setTimeout(() => { popupEl.remove(); }, 1500);
+        }
+
+        // --- 3. MUZIK LATAR (BGM OBJECT PENGGANTI AUDIO ELEMENT) ---
+        let audioCtx;
+        let masterGain;
+        let melodyPlaying = false;
+        let currentStep = 0;
+        let nextNoteTime = 0;
+
+        const bpm = 130;
+        const stepDuration = (60 / bpm) / 2;
+
+        const arcadeSequence = [
+            { note: 523.25, kick: true }, { note: 783.99, kick: false },
+            { note: 1046.50,kick: true }, { note: 783.99, kick: false },
+            { note: 622.25, kick: true }, { note: 698.46, kick: false },
+            { note: 783.99, kick: true }, { note: 1046.50,kick: false },
+            { note: 932.33, kick: true }, { note: 783.99, kick: false },
+            { note: 698.46, kick: true }, { note: 622.25, kick: false },
+            { note: 523.25, kick: true }, { note: null,   kick: false }, 
+            { note: 392.00, kick: true }, { note: 466.16, kick: false }
+        ];
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = audioCtx.createGain();
+                masterGain.connect(audioCtx.destination);
+                masterGain.gain.value = isMusicWanted ? 0.08 : 0; 
+            }
+        }
+
+        function playArcadeNote(freq, dur, start) {
+            if (!freq) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = freq;
+
+            gain.gain.setValueAtTime(0, start);
+            gain.gain.linearRampToValueAtTime(0.8, start + 0.02);
+            gain.gain.setValueAtTime(0.8, start + dur * 0.5);
+            gain.gain.linearRampToValueAtTime(0, start + dur * 0.8);
+
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start(start);
+            osc.stop(start + dur);
+        }
+
+        function playKick(start) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle'; 
+            osc.frequency.setValueAtTime(150, start); 
+            osc.frequency.exponentialRampToValueAtTime(10, start + 0.15); 
+            gain.gain.setValueAtTime(1, start);
+            gain.gain.exponentialRampToValueAtTime(0.01, start + 0.15); 
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start(start);
+            osc.stop(start + 0.15);
+        }
+
+        function scheduler() {
+            if (!melodyPlaying) return;
+            while (nextNoteTime < audioCtx.currentTime + 0.1) {
+                const step = arcadeSequence[currentStep];
+                if (step.note) playArcadeNote(step.note, stepDuration, nextNoteTime);
+                if (step.kick) playKick(nextNoteTime);
+                nextNoteTime += stepDuration;
+                currentStep = (currentStep + 1) % arcadeSequence.length;
+            }
+            setTimeout(scheduler, 25);
+        }
+
+        // PENGURUSAN BGM (Mula dan Berhenti)
+        const BGM = {
+            play: function() {
+                if (!audioCtx) initAudio();
+                audioCtx.resume();
+                if (!melodyPlaying) {
+                    melodyPlaying = true;
+                    nextNoteTime = audioCtx.currentTime + 0.05;
+                    scheduler(); 
+                }
+            },
+            pause: function() {
+                melodyPlaying = false; 
+                if (masterGain && audioCtx) {
+                    masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5); // Fade out perlahan
+                }
+            }
+        };
+
+        // --- HURUF JATUH & KAWALAN ---
+        function spawnLetter() {
+            const letterEl = document.createElement('div');
+            letterEl.classList.add('letter');
+            let isVowel = Math.random() < 0.6; 
+            let randomChar = '';
+            
+            if (isVowel) {
+                const neededVowels = [];
+                if (!collectedVowels.has('a')) neededVowels.push('a');
+                if (!collectedVowels.has('e_pepet') || !collectedVowels.has('e_taling')) neededVowels.push('e');
+                if (!collectedVowels.has('i')) neededVowels.push('i');
+                if (!collectedVowels.has('o')) neededVowels.push('o');
+                if (!collectedVowels.has('u')) neededVowels.push('u');
+
+                let availableNeeded = neededVowels.filter(v => v !== lastSpawnedChar);
+                if (availableNeeded.length === 0) availableNeeded = neededVowels;
+
+                if (availableNeeded.length > 0 && Math.random() < 0.90) {
+                    randomChar = availableNeeded[Math.floor(Math.random() * availableNeeded.length)];
+                } else {
+                    let availableVowels = vowels.filter(v => v !== lastSpawnedChar);
+                    randomChar = availableVowels[Math.floor(Math.random() * availableVowels.length)];
+                }
+                
+                letterEl.classList.add('vowel');
+            } else {
+                let availableConsonants = consonants.filter(c => c !== lastSpawnedChar);
+                randomChar = availableConsonants[Math.floor(Math.random() * availableConsonants.length)];
+                letterEl.classList.add('consonant');
+            }
+
+            lastSpawnedChar = randomChar; 
+
+            letterEl.textContent = randomChar;
+            letterEl.dataset.char = randomChar;
+            letterEl.dataset.isVowel = isVowel;
+
+            let randomX = Math.random() * (window.innerWidth - 70);
+            letterEl.style.transform = `translate(${randomX}px, -80px)`; 
+            
+            document.body.appendChild(letterEl);
+            activeLetters.push({ element: letterEl, y: -80, x: randomX, isVowel: isVowel, char: randomChar });
+        }
+
+        window.addEventListener('touchmove', (e) => {
+            if(!gameActive) return;
+            basketX = e.touches[0].clientX;
+            updateBasketPosition();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft = true;
+            if (e.key === 'ArrowRight' || e.key === 'd') moveRight = true;
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft = false;
+            if (e.key === 'ArrowRight' || e.key === 'd') moveRight = false;
+        });
+
+        function updateBasketPosition() {
+            if (basketX < basketWidth / 2) basketX = basketWidth / 2;
+            if (basketX > window.innerWidth - basketWidth / 2) basketX = window.innerWidth - basketWidth / 2;
+            basketEl.style.left = `${basketX}px`;
+        }
+
+        function gameLoop(timestamp) {
+            if (!gameActive) return;
+            let deltaTime = timestamp - lastTime;
+            if (deltaTime > 100) deltaTime = 16; 
+            lastTime = timestamp;
+
+            let timeSec = deltaTime / 1000;
+
+            if (moveLeft) basketX -= basketSpeed * timeSec;
+            if (moveRight) basketX += basketSpeed * timeSec;
+            updateBasketPosition();
+
+            letterSpawnTimer += deltaTime;
+            if (letterSpawnTimer >= spawnInterval) {
+                spawnLetter();
+                letterSpawnTimer = 0;
+            }
+
+            let basketRect = basketEl.getBoundingClientRect();
+            
+            for (let i = activeLetters.length - 1; i >= 0; i--) {
+                let letterData = activeLetters[i];
+                let el = letterData.element;
+
+                letterData.y += fallSpeed * timeSec;
+                el.style.transform = `translate(${letterData.x}px, ${letterData.y}px)`; 
+
+                let letterRect = el.getBoundingClientRect();
+
+                if (letterData.y > window.innerHeight) {
+                    el.remove();
+                    activeLetters.splice(i, 1);
+                    continue; 
+                }
+
+                let isColliding = !(
+                    letterRect.bottom < basketRect.top + 30 || 
+                    letterRect.top > basketRect.bottom || 
+                    letterRect.right < basketRect.left + 15 || 
+                    letterRect.left > basketRect.right - 15
+                );
+
+                if (isColliding) {
+                    if (letterData.isVowel) {
+                        basketEl.classList.remove('jump');
+                        void basketEl.offsetWidth; 
+                        basketEl.classList.add('jump');
+
+                        let caughtKey = letterData.char;
+                        if (caughtKey === 'e') {
+                            if (!collectedVowels.has('e_pepet')) {
+                                caughtKey = 'e_pepet';
+                            } else if (!collectedVowels.has('e_taling')) {
+                                caughtKey = 'e_taling';
+                            } else {
+                                caughtKey = Math.random() > 0.5 ? 'e_pepet' : 'e_taling';
+                            }
+                        }
+
+                        showCartoonAnimation(caughtKey, basketRect.left + (basketRect.width/4), basketRect.top);
+                        
+                        const trackableVowels = ['a', 'e_pepet', 'e_taling', 'i', 'o', 'u'];
+                        
+                        if (trackableVowels.includes(caughtKey) && !collectedVowels.has(caughtKey)) {
+                            collectedVowels.add(caughtKey);
+                            
+                            if (['a', 'i', 'o', 'u'].includes(caughtKey)) {
+                                document.getElementById(`track-${caughtKey}`).classList.add('collected');
+                            }
+                            
+                            if (caughtKey === 'e_pepet' || caughtKey === 'e_taling') {
+                                const eTrack = document.getElementById('track-e');
+                                if (collectedVowels.has('e_pepet') && collectedVowels.has('e_taling')) {
+                                    eTrack.classList.remove('half');
+                                    eTrack.classList.add('collected'); 
+                                } else {
+                                    eTrack.classList.add('half'); 
+                                }
+                            }
+                            
+                            // Logik BGM Berhenti (Arahan 4)
+                            if (collectedVowels.size === 6) {
+                                BGM.pause(); // Panggil fungsi BGM.pause() untuk hentikan muzik
+                                setTimeout(() => {
+                                    gameActive = false;
+                                    gameOverModal.style.display = 'flex';
+                                }, 1500); 
+                            }
+                        }
+                    }
+
+                    el.remove();
+                    activeLetters.splice(i, 1);
+                }
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- BUTANG MULA (UNLOCK BROWSER AUTOPLAY & SPEECH CROSS-DEVICE) ---
+        startBtn.addEventListener('click', () => {
+            instructionsEl.style.display = 'none';
+            
+            // 2. AUDIO CROSS-DEVICE: Membangkitkan Enjin Suara di iOS/Android
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.resume(); // Wajib untuk iOS/Safari
+                let unlockMsg = new SpeechSynthesisUtterance(''); // Teks kosong untuk dicetuskan
+                if (malayVoice) unlockMsg.voice = malayVoice; 
+                unlockMsg.lang = 'ms-MY'; 
+                unlockMsg.volume = 0; // Pastikan senyap semasa 'unlock'
+                window.speechSynthesis.speak(unlockMsg);
+            }
+            
+            BGM.play();
+
+            gameActive = true;
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        });
+
+        restartBtn.addEventListener('click', () => {
+            collectedVowels.clear();
+            document.querySelectorAll('.vowel-slot').forEach(el => {
+                el.classList.remove('collected');
+                el.classList.remove('half');
+            });
+            
+            activeLetters.forEach(item => item.element.remove());
+            activeLetters = [];
+            
+            gameOverModal.style.display = 'none';
+            
+            if (isMusicWanted) {
+                if (masterGain && audioCtx) {
+                     masterGain.gain.setTargetAtTime(0.08, audioCtx.currentTime, 0.1);
+                }
+                BGM.play();
+            }
+
+            gameActive = true;
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        });
+
+        musicBtn.addEventListener('click', () => {
+            isMusicWanted = !isMusicWanted;
+            if (isMusicWanted) {
+                musicBtn.textContent = '🎵';
+                if (masterGain && audioCtx) {
+                    masterGain.gain.setTargetAtTime(0.08, audioCtx.currentTime, 0.1);
+                    audioCtx.resume();
+                }
+            } else {
+                musicBtn.textContent = '🔇';
+                BGM.pause();
+            }
+        });
+
+        updateBasketPosition();
+        window.addEventListener('resize', updateBasketPosition);
+
+    </script>
+</body>
+</html>
